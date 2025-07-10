@@ -35,41 +35,42 @@ app.get('/', (req, res) => {
 app.post('/upload-image', upload.single('image'), (req, res) => {
   try {
     const imagePath = req.file.path;
-    const timestamp = Date.now();
-    const pdfFileName = `${timestamp}_with_image.pdf`;
-    const pdfOutputPath = path.join('output', pdfFileName);
-    const downloadsPath = path.join(os.homedir(), 'Downloads', pdfFileName);
 
-    const doc = new PDFDocument();
-    const writeStream = fs.createWriteStream(pdfOutputPath);
-    doc.pipe(writeStream);
-
-    // PDF content
-    doc.fontSize(18).text('Invoice with Embedded Image', { align: 'center' });
-    doc.moveDown();
-
-    doc.image(imagePath, {
-      fit: [400, 300],
-      align: 'center',
-      valign: 'center'
+    // Create a new PDF
+    const doc = new PDFDocument({
+      size: 'A4', // Standard page size
+      margin: 0   // No margin for full-page image
     });
 
-    doc.moveDown();
-    doc.fontSize(14).text('This image was uploaded and embedded into the PDF.');
+    const timestamp = Date.now();
+    const fileName = `${timestamp}_image_only.pdf`;
+
+    // Set headers for browser download
+    res.setHeader('Content-Disposition', `attachment; filename="${fileName}"`);
+    res.setHeader('Content-Type', 'application/pdf');
+
+    // Pipe PDF directly to the browser
+    doc.pipe(res);
+
+    // Add the full-page image
+    doc.image(imagePath, 0, 0, {
+      width: doc.page.width,
+      height: doc.page.height
+    });
+
     doc.end();
 
-    writeStream.on('finish', () => {
-      // Copy to Downloads folder
-      fs.copyFileSync(pdfOutputPath, downloadsPath);
-      console.log(`PDF saved to output/ and also copied to: ${downloadsPath}`);
+    // Clean up the uploaded image after sending
+    fs.unlink(imagePath, (err) => {
+      if (err) console.warn('Could not delete temp image:', err.message);
     });
 
-    res.status(200).send('✅ PDF generated and saved in Downloads folder.');
   } catch (err) {
     console.error(err);
-    res.status(500).send('❌ Failed to generate PDF');
+    res.status(500).send('❌ Failed to generate full-page image PDF');
   }
 });
+
 
 app.listen(PORT, () => {
   console.log(`Server running on http://localhost:${PORT}`);
