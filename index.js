@@ -1,76 +1,72 @@
-import express from 'express';
-import multer from 'multer';
-import fs from 'fs';
-import PDFDocument from 'pdfkit';
-import path from 'path';
-import os from 'os'; // for Downloads path
+import express from "express";
+import multer from "multer";
+import PDFDocument from "pdfkit";
+import path from "path";
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-app.set('view engine', 'ejs');
-app.set('views', path.join(path.resolve(), 'views'));
-app.use(express.static('public'));
+app.set("view engine", "ejs");
+app.set("views", path.join(path.resolve(), "views"));
+app.use(express.static("public"));
 
-// Ensure folders exist
-['uploads', 'output'].forEach((dir) => {
-  if (!fs.existsSync(dir)) fs.mkdirSync(dir);
-});
-
-// Multer config
-const storage = multer.diskStorage({
-  destination: 'uploads/',
-  filename: (req, file, cb) => {
-    cb(null, Date.now() + path.extname(file.originalname));
-  }
-});
+const storage = multer.memoryStorage();
 const upload = multer({ storage });
 
-// Route to render EJS form
-app.get('/', (req, res) => {
-  res.render('index'); // renders views/index.ejs
+
+app.get("/", (req, res) => {
+  res.render("index"); // renders views/index.ejs
 });
 
-// Route to handle image upload
-app.post('/upload-image', upload.single('image'), (req, res) => {
+app.post("/upload-image", upload.single("image"), (req, res) => {
   try {
-    const imagePath = req.file.path;
+    const imageBuffer = req.file.buffer;
 
-    // Create a new PDF
     const doc = new PDFDocument({
-      size: 'A4', // Standard page size
-      margin: 0   // No margin for full-page image
+      size: "A4",
+      margin: 0,
     });
 
-    const timestamp = Date.now();
-    const fileName = `${timestamp}_image_only.pdf`;
+    const now = new Date();
 
-    // Set headers for browser download
-    res.setHeader('Content-Disposition', `attachment; filename="${fileName}"`);
-    res.setHeader('Content-Type', 'application/pdf');
+    // Auto-detect user's system locale
+    const locale = Intl.DateTimeFormat().resolvedOptions().locale;
 
-    // Pipe PDF directly to the browser
+    // Format date and time based on locale
+    const formattedDate = new Intl.DateTimeFormat(locale, {
+      day: "2-digit",
+      month: "2-digit",
+      year: "numeric",
+    }).format(now);
+
+    const formattedTime = new Intl.DateTimeFormat(locale, {
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: false, // change to true for AM/PM format
+    }).format(now);
+
+    // Clean up and combine for filename
+    const safeDate = formattedDate.replace(/[^\d]/g, "-"); // Replace slashes/dots
+    const safeTime = formattedTime.replace(/[^\d]/g, "-"); // Replace colon or space
+    const fileName = `pdf_${safeDate}_${safeTime}.pdf`; 
+
+    res.setHeader("Content-Disposition", `attachment; filename="${fileName}"`);
+    res.setHeader("Content-Type", "application/pdf");
+
     doc.pipe(res);
 
-    // Add the full-page image
-    doc.image(imagePath, 0, 0, {
+    // Embed image from buffer instead of file path
+    doc.image(imageBuffer, 0, 0, {
       width: doc.page.width,
-      height: doc.page.height
+      height: doc.page.height,
     });
 
     doc.end();
-
-    // Clean up the uploaded image after sending
-    fs.unlink(imagePath, (err) => {
-      if (err) console.warn('Could not delete temp image:', err.message);
-    });
-
   } catch (err) {
     console.error(err);
-    res.status(500).send('❌ Failed to generate full-page image PDF');
+    res.status(500).send("❌ Failed to generate full-page image PDF");
   }
 });
-
 
 app.listen(PORT, () => {
   console.log(`Server running on http://localhost:${PORT}`);
