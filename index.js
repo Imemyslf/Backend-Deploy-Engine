@@ -2,6 +2,7 @@ import express from "express";
 import multer from "multer";
 import PDFDocument from "pdfkit";
 import path from "path";
+import sizeOf from "image-size";
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -10,29 +11,26 @@ app.set("view engine", "ejs");
 app.set("views", path.join(path.resolve(), "views"));
 app.use(express.static("public"));
 
-const storage = multer.memoryStorage();
-const upload = multer({ storage });
+// Middleware to parse JSON (for base64 image)
+app.use(express.json({ limit: "10mb" }));
 
-
-app.get("/", (req, res) => {
-  res.render("index"); // renders views/index.ejs
-});
-
-app.post("/upload-image", upload.single("image"), (req, res) => {
+app.post("/upload-image", (req, res) => {
   try {
-    const imageBuffer = req.file.buffer;
+    const { imageBase64 } = req.body;
+    if (!imageBase64) {
+      return res.status(400).send("❌ No base64 image provided.");
+    }
+
+    const imageBuffer = Buffer.from(imageBase64, "base64");
 
     const doc = new PDFDocument({
       size: "A4",
-      margin: 0,
+      margin: 0, // Remove default margins
     });
 
     const now = new Date();
-
-    // Auto-detect user's system locale
     const locale = Intl.DateTimeFormat().resolvedOptions().locale;
 
-    // Format date and time based on locale
     const formattedDate = new Intl.DateTimeFormat(locale, {
       day: "2-digit",
       month: "2-digit",
@@ -42,32 +40,48 @@ app.post("/upload-image", upload.single("image"), (req, res) => {
     const formattedTime = new Intl.DateTimeFormat(locale, {
       hour: "2-digit",
       minute: "2-digit",
-      hour12: false, // change to true for AM/PM format
+      hour12: false,
     }).format(now);
 
-    // Clean up and combine for filename
-    const safeDate = formattedDate.replace(/[^\d]/g, "-"); // Replace slashes/dots
-    const safeTime = formattedTime.replace(/[^\d]/g, "-"); // Replace colon or space
-    const fileName = `pdf_${safeDate}_${safeTime}.pdf`; 
+    const safeDate = formattedDate.replace(/[^\d]/g, "-");
+    const safeTime = formattedTime.replace(/[^\d]/g, "-");
+    const fileName = `pdf_${safeDate}_${safeTime}.pdf`;
 
     res.setHeader("Content-Disposition", `attachment; filename="${fileName}"`);
     res.setHeader("Content-Type", "application/pdf");
 
     doc.pipe(res);
 
-    // Embed image from buffer instead of file path
-    doc.image(imageBuffer, 0, 0, {
-      width: doc.page.width,
-      height: doc.page.height,
+    // ✅ Get original image dimensions
+    const dimensions = sizeOf(imageBuffer);
+    const imgWidth = dimensions.width;
+    const imgHeight = dimensions.height;
+
+    const pageWidth = doc.page.width;
+    const pageHeight = doc.page.height;
+
+    // ✅ Scale proportionally
+    const scale = Math.min(pageWidth / imgWidth, pageHeight / imgHeight);
+    const scaledWidth = imgWidth * scale;
+    const scaledHeight = imgHeight * scale;
+
+    // ✅ Centered image
+    const x = (pageWidth - scaledWidth) / 2;
+    const y = (pageHeight - scaledHeight) / 2;
+
+    doc.image(imageBuffer, x, y, {
+      width: scaledWidth,
+      height: scaledHeight,
     });
 
+    console.log("✅ PDF generated with scaled and centered image.");
     doc.end();
   } catch (err) {
-    console.error(err);
-    res.status(500).send("❌ Failed to generate full-page image PDF");
+    console.error("❌ Error generating PDF:", err);
+    res.status(500).send("❌ Failed to generate PDF.");
   }
 });
 
 app.listen(PORT, () => {
-  console.log(`Server running on http://localhost:${PORT}`);
+  console.log(`🚀 Server running at http://localhost:${PORT}`);
 });
