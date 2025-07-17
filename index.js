@@ -1,5 +1,4 @@
 import express from "express";
-import multer from "multer";
 import PDFDocument from "pdfkit";
 import path from "path";
 import sizeOf from "image-size";
