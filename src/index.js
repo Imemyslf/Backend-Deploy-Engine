@@ -1,5 +1,5 @@
 import express from "express";
-import upImage from "./routes/uiRoute.js"
+import upImage from "../routes/uiRoute.js"
 
 const app = express();
 const PORT = process.env.PORT || 3000;

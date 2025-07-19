@@ -1,5 +1,5 @@
 import express from "express";
-import uploadImage from "../controllers/uiController";
+import uploadImage from "../controllers/uiController.js";
 
 const router = express.Router();
 
