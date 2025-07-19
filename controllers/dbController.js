@@ -13,6 +13,7 @@ const getDate = () => {
 export async function fetchAutomotiveCompanies(req, res) {
     try {
         const companies = await db.collection("automotive_companies").find({}).toArray();
+        console.log("Fetched companies:", companies);
         res.status(200).send(companies);
     } catch (err) {
         console.error("Error fetching four wheeler companies:", err);
@@ -24,6 +25,7 @@ export async function fetchAutomotiveCompanies(req, res) {
 export async function fetchWorkshopServices(req, res) {
     try {
         const services = await db.collection("workshop_services").find({}).toArray();
+        console.log("Fetched services:", services);
         // Optionally add _id as id
         const result = services.map(service => ({ id: service._id, ...service }));
         res.status(200).send(result);
