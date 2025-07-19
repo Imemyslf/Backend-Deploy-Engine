@@ -39,7 +39,7 @@ const uploadImage = async  (req, res) => {
 
     doc.pipe(res);
 
-    // ✅ Get original image dimensions
+    //  Get original image dimensions
     const dimensions = sizeOf(imageBuffer);
     const imgWidth = dimensions.width;
     const imgHeight = dimensions.height;
@@ -47,12 +47,12 @@ const uploadImage = async  (req, res) => {
     const pageWidth = doc.page.width;
     const pageHeight = doc.page.height;
 
-    // ✅ Scale proportionally
+    //  Scale proportionally
     const scale = Math.min(pageWidth / imgWidth, pageHeight / imgHeight);
     const scaledWidth = imgWidth * scale;
     const scaledHeight = imgHeight * scale;
 
-    // ✅ Centered image
+    //  Centered image
     const x = (pageWidth - scaledWidth) / 2;
     const y = (pageHeight - scaledHeight) / 2;
 
@@ -61,11 +61,11 @@ const uploadImage = async  (req, res) => {
       height: scaledHeight,
     });
 
-    console.log("✅ PDF generated with scaled and centered image.");
+    console.log(" PDF generated with scaled and centered image.");
     doc.end();
   } catch (err) {
-    console.error("❌ Error generating PDF:", err);
-    res.status(500).send("❌ Failed to generate PDF.");
+    console.error("Error generating PDF:", err);
+    res.status(500).send("Failed to generate PDF.");
   }
 };
 
